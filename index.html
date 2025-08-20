@@ -136,11 +136,32 @@
 
         /* Responsive adjustments for smaller screens */
         @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.25rem; /* from text-2xl */
+            }
+            header p {
+                font-size: 0.875rem; /* from text-sm */
+            }
             .layers-panel {
                 width: auto;
                 left: 1rem;
                 right: 1rem;
                 top: 1rem;
+                padding: 1rem; /* Reduced padding */
+            }
+            .layers-panel h2 {
+                font-size: 1.125rem; /* text-lg */
+            }
+            .legend {
+                font-size: 12px;
+                line-height: 1.5;
+            }
+            .legend i {
+                width: 14px;
+                height: 14px;
+            }
+            .legend .line {
+                margin-top: 5px;
             }
         }
     </style>
@@ -190,18 +211,6 @@
                     <label class="inline-flex items-center cursor-pointer">
                         <input type="checkbox" value="substations" class="form-checkbox h-5 w-5 text-gray-600 rounded focus:ring-gray-500" checked>
                         <span class="ml-3 text-gray-700">Posts</span>
-                    </label>
-                </div>
-                 <div>
-                    <label class="inline-flex items-center cursor-pointer">
-                        <input type="checkbox" value="rated-lines" class="form-checkbox h-5 w-5 text-sky-500 rounded focus:ring-sky-400" checked>
-                        <span class="ml-3 text-gray-700">Rated Lines</span>
-                    </label>
-                </div>
-                <div>
-                    <label class="inline-flex items-center cursor-pointer">
-                        <input type="checkbox" value="rated-polygons" class="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500" checked>
-                        <span class="ml-3 text-gray-700">Rated Polygons</span>
                     </label>
                 </div>
             </div>
@@ -404,7 +413,7 @@
         }
 
         /**
-         * Loads the rated lines GeoJSON data.
+         * Loads the rated lines GeoJSON data and adds it to the map.
          */
         async function loadRatedLines() {
             try {
@@ -416,7 +425,7 @@
                 ratedLinesLayer = L.geoJSON(ratedLinesData, {
                     style: { color: '#00BFFF', weight: 2, opacity: 0.7 }, // Deep Sky Blue
                     onEachFeature: onEachFeature
-                });
+                }).addTo(map); // Add directly to map
 
             } catch (error) {
                 console.error("Could not load Rated Lines GeoJSON data:", error);
@@ -424,7 +433,7 @@
         }
 
         /**
-         * Loads the rated polygons GeoJSON data.
+         * Loads the rated polygons GeoJSON data and adds it to the map.
          */
         async function loadRatedPolygons() {
             try {
@@ -436,7 +445,7 @@
                 ratedPolygonsLayer = L.geoJSON(ratedPolygonsData, {
                     style: { color: '#4169E1', weight: 2, opacity: 0.5, fillColor: '#6495ED', fillOpacity: 0.2 }, // Royal Blue & Cornflower Blue
                     onEachFeature: onEachFeature
-                });
+                }).addTo(map); // Add directly to map
 
             } catch (error) {
                 console.error("Could not load Rated Polygons GeoJSON data:", error);
@@ -444,7 +453,7 @@
         }
 
         /**
-         * Updates visibility of all layers based on selected checkboxes.
+         * Updates visibility of layers based on selected checkboxes.
          */
         function updateLayerVisibility() {
             const checkedValues = Array.from(layersControl.querySelectorAll('input:checked')).map(input => input.value);
@@ -462,9 +471,7 @@
             // Toggle standard layers
             const standardLayers = {
                 'power-lines': powerLinesLayer,
-                'substations': substationsLayer,
-                'rated-lines': ratedLinesLayer,
-                'rated-polygons': ratedPolygonsLayer
+                'substations': substationsLayer
             };
 
             for (const [value, layer] of Object.entries(standardLayers)) {
@@ -518,8 +525,8 @@
             createProjectMarkers();
             await loadPowerLinesData();
             await loadSubstationsData();
-            await loadRatedLines();
-            await loadRatedPolygons();
+            await loadRatedLines(); // This will now add the layer to the map
+            await loadRatedPolygons(); // This will also add the layer to the map
             addLegend();
             // Set initial visibility based on default checked boxes
             updateLayerVisibility(); 
