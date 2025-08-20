@@ -128,9 +128,10 @@
         function onEachFeature(feature, layer) {
             if (feature.properties) {
                 const props = feature.properties;
+                // Gracefully handle missing properties
                 const statusText = props.status ? props.status.charAt(0).toUpperCase() + props.status.slice(1) : 'N/A';
                 const capacityText = props.capacity || 'N/A';
-                const nameText = props.name || 'Unnamed Project';
+                const nameText = props.name || 'Unnamed Feature';
 
                 const popupContent = `
                     <div class="project-popup">
@@ -148,7 +149,7 @@
          */
         async function loadGeoJsonData() {
             try {
-                // *** FIXED URL: This now points to the raw GeoJSON file content ***
+                // *** This URL points to the raw GeoJSON file content ***
                 const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/PWR_lines.geojson'; 
                 const response = await fetch(geoJsonUrl);
                 
@@ -198,7 +199,11 @@
 
             // Filter the original data and add it back to the layer
             const filteredData = allGeoJsonData.features.filter(feature => {
-                const status = feature.properties.status ? feature.properties.status.toLowerCase().replace(/\s+/g, '-') : '';
+                // *** FIX: If a feature has no status property, always show it. ***
+                if (!feature.properties.status) {
+                    return true;
+                }
+                const status = feature.properties.status.toLowerCase().replace(/\s+/g, '-');
                 return checkedStatuses.includes(status);
             });
 
