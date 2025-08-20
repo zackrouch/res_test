@@ -106,19 +106,17 @@
         }
 
         /**
-         * Styles the point features based on their 'status' property.
+         * Styles features (lines or points) based on their 'status' property.
          * @param {object} feature - The GeoJSON feature.
          * @returns {object} - Leaflet path options for styling.
          */
         function styleFeature(feature) {
             const status = feature.properties.status ? feature.properties.status.toLowerCase().replace(/\s+/g, '-') : 'default';
+            // Style for lines
             return {
-                radius: 8,
-                fillColor: statusColors[status] || '#808080', // Default to gray if status is not found
-                color: '#fff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
+                color: statusColors[status] || '#808080', // Default to gray if status is not found
+                weight: 5,
+                opacity: 0.8
             };
         }
         
@@ -150,8 +148,8 @@
          */
         async function loadGeoJsonData() {
             try {
-                // *** IMPORTANT: REPLACE THIS URL WITH THE LINK TO YOUR HOSTED GEOJSON FILE ***
-                const geoJsonUrl = 'https://github.com/zackrouch/res_test/blob/71c8918f299135ca5e8319f887440cb1920adb85/PWR_lines.geojson'; 
+                // *** FIXED URL: This now points to the raw GeoJSON file content ***
+                const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/PWR_lines.geojson'; 
                 const response = await fetch(geoJsonUrl);
                 
                 if (!response.ok) {
@@ -161,7 +159,20 @@
                 allGeoJsonData = await response.json();
 
                 geoJsonLayer = L.geoJSON(allGeoJsonData, {
-                    pointToLayer: (feature, latlng) => L.circleMarker(latlng, styleFeature(feature)),
+                    // Use a single style function for all feature types (points, lines, polygons)
+                    style: styleFeature,
+                    // Use pointToLayer only if you want to create custom markers for points
+                    pointToLayer: (feature, latlng) => {
+                        // Create circle markers for point data
+                        return L.circleMarker(latlng, {
+                            radius: 8,
+                            fillColor: styleFeature(feature).color, // Use the color from the style function
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
                     onEachFeature: onEachFeature
                 }).addTo(map);
                 
