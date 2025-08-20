@@ -79,25 +79,10 @@
     <!-- Leaflet JavaScript for map functionality -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
-        // Data for the RES projects with latitude and longitude.
-        const projects = [
-            { name: "Tozeur PV", status: "operational", capacity: "10 MW", lat: 33.91, lon: 8.13 },
-            { name: "Sidi Bouzid PV", status: "operational", capacity: "10 MW", lat: 35.03, lon: 9.48 },
-            { name: "Kairouan PV", status: "operational", capacity: "10 MW", lat: 35.67, lon: 10.10 },
-            { name: "Tataouine PV Station", status: "operational", capacity: "10 MW", lat: 32.92, lon: 10.45 },
-            { name: "Gafsa PV", status: "under-construction", capacity: "10 MW", lat: 34.42, lon: 8.78 },
-            { name: "Gabes PV", status: "under-construction", capacity: "100 MW", lat: 33.88, lon: 10.11 },
-            { name: "Tataouine PV", status: "awarded", capacity: "200 MW", lat: 32.95, lon: 10.50 },
-            { name: "Kairouan (Methaista) PV", status: "awarded", capacity: "100 MW", lat: 35.70, lon: 10.05 },
-            { name: "Gafsa (Metlaoui) PV", status: "awarded", capacity: "100 MW", lat: 34.32, lon: 8.40 },
-            { name: "Sfax (Chebilia) PV", status: "awarded", capacity: "50 MW", lat: 34.74, lon: 10.76 },
-            { name: "Tozeur (Ksar Ghilane) PV", status: "awarded", capacity: "50 MW", lat: 32.98, lon: 9.63 },
-            { name: "Gabes (Ramada) PV", status: "awarded", capacity: "50 MW", lat: 33.70, lon: 10.38 }
-        ];
-
         const filters = document.getElementById('filters');
         let map; // To hold the map instance
-        const markers = {}; // To hold marker instances for filtering
+        let geoJsonLayer; // To hold the GeoJSON layer for filtering
+        let allGeoJsonData; // To store the original GeoJSON data
 
         // Define colors for different statuses
         const statusColors = {
@@ -121,70 +106,101 @@
         }
 
         /**
-         * Creates and stores markers for each project.
+         * Styles the point features based on their 'status' property.
+         * @param {object} feature - The GeoJSON feature.
+         * @returns {object} - Leaflet path options for styling.
          */
-        function createMarkers() {
-            projects.forEach(project => {
-                const color = statusColors[project.status.replace(/\s+/g, '-')];
-                
-                // Create a circle marker
-                const marker = L.circleMarker([project.lat, project.lon], {
-                    radius: 8,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                });
+        function styleFeature(feature) {
+            const status = feature.properties.status ? feature.properties.status.toLowerCase().replace(/\s+/g, '-') : 'default';
+            return {
+                radius: 8,
+                fillColor: statusColors[status] || '#808080', // Default to gray if status is not found
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            };
+        }
+        
+        /**
+         * Binds a popup to each feature with its properties.
+         * @param {object} feature - The GeoJSON feature.
+         * @param {object} layer - The Leaflet layer for the feature.
+         */
+        function onEachFeature(feature, layer) {
+            if (feature.properties) {
+                const props = feature.properties;
+                const statusText = props.status ? props.status.charAt(0).toUpperCase() + props.status.slice(1) : 'N/A';
+                const capacityText = props.capacity || 'N/A';
+                const nameText = props.name || 'Unnamed Project';
 
-                // Create the popup content
-                const statusText = project.status.charAt(0).toUpperCase() + project.status.slice(1).replace(/-/g, ' ');
                 const popupContent = `
                     <div class="project-popup">
-                        <h3>${project.name}</h3>
+                        <h3>${nameText}</h3>
                         <p><strong>Status:</strong> ${statusText}</p>
-                        <p><strong>Capacity:</strong> ${project.capacity}</p>
+                        <p><strong>Capacity:</strong> ${capacityText}</p>
                     </div>
                 `;
-                marker.bindPopup(popupContent);
+                layer.bindPopup(popupContent);
+            }
+        }
 
-                // Store the marker
-                markers[project.name] = marker;
-            });
+        /**
+         * Loads GeoJSON data from a URL and adds it to the map.
+         */
+        async function loadGeoJsonData() {
+            try {
+                // *** IMPORTANT: REPLACE THIS URL WITH THE LINK TO YOUR HOSTED GEOJSON FILE ***
+                const geoJsonUrl = 'https://github.com/zackrouch/res_test/blob/main/PWR_lines.geojson'; 
+                const response = await fetch(geoJsonUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                allGeoJsonData = await response.json();
+
+                geoJsonLayer = L.geoJSON(allGeoJsonData, {
+                    pointToLayer: (feature, latlng) => L.circleMarker(latlng, styleFeature(feature)),
+                    onEachFeature: onEachFeature
+                }).addTo(map);
+                
+                // Apply initial filter after data is loaded
+                filterMarkers();
+
+            } catch (error) {
+                console.error("Could not load GeoJSON data:", error);
+                alert("Failed to load map data. Please check the console for more details and ensure the GeoJSON URL is correct.");
+            }
         }
 
         /**
          * Filters markers on the map based on selected checkboxes.
          */
         function filterMarkers() {
+            if (!geoJsonLayer || !allGeoJsonData) return; // Don't run if data isn't loaded
+
             const checkedStatuses = Array.from(filters.querySelectorAll('input:checked')).map(input => input.value);
+            
+            // Clear the existing layer
+            geoJsonLayer.clearLayers();
 
-            projects.forEach(project => {
-                const marker = markers[project.name];
-                const projectStatus = project.status.replace(/\s+/g, '-');
-
-                if (checkedStatuses.includes(projectStatus)) {
-                    // If status is checked and marker is not on map, add it
-                    if (!map.hasLayer(marker)) {
-                        marker.addTo(map);
-                    }
-                } else {
-                    // If status is not checked and marker is on map, remove it
-                    if (map.hasLayer(marker)) {
-                        marker.remove();
-                    }
-                }
+            // Filter the original data and add it back to the layer
+            const filteredData = allGeoJsonData.features.filter(feature => {
+                const status = feature.properties.status ? feature.properties.status.toLowerCase().replace(/\s+/g, '-') : '';
+                return checkedStatuses.includes(status);
             });
+
+            geoJsonLayer.addData({ type: "FeatureCollection", features: filteredData });
         }
 
         // Add event listener to the filter checkboxes
         filters.addEventListener('change', filterMarkers);
 
-        // Initialize the map when the window loads
+        // Initialize the map and load data when the window loads
         window.onload = () => {
             initMap();
-            createMarkers();
-            filterMarkers(); // Apply initial filter
+            loadGeoJsonData();
         };
     </script>
 </body>
