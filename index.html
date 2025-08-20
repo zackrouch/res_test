@@ -9,16 +9,54 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Base styles for a full-screen layout */
         body {
             font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrollbars */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f3f4f6;
         }
-        /* Set a height for the map container */
+
+        header {
+            flex-shrink: 0; /* Prevent header from shrinking */
+            padding: 1rem;
+            background-color: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 1000; /* Ensure header is on top */
+        }
+
+        .main-content {
+            flex-grow: 1; /* Allow main content to fill remaining space */
+            display: flex;
+            position: relative;
+        }
+
+        /* Semi-transparent filter panel positioned over the map */
+        .layers-panel {
+            position: absolute;
+            top: 1.5rem;
+            left: 1.5rem;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(5px); /* Frosted glass effect */
+            -webkit-backdrop-filter: blur(5px);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 999; /* Below header, above map */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Map container fills the entire main content area */
         #map {
+            width: 100%;
             height: 100%;
-            min-height: 600px;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
         /* Custom Leaflet popup styles to match the theme */
         .leaflet-popup-content-wrapper {
             border-radius: 8px;
@@ -55,16 +93,19 @@
             font-size: 0.9rem;
             border-left: 3px solid #4f46e5;
         }
-        /* Styles for the new legend */
+
+        /* Styles for the legend */
         .legend {
             padding: 6px 10px;
             font: 14px/16px Arial, Helvetica, sans-serif;
-            background: white;
-            background: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             border-radius: 5px;
             line-height: 20px;
             color: #555;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .legend h4 {
             margin: 0 0 5px;
@@ -87,57 +128,78 @@
             border-radius: 2px;
             margin-top: 7px;
         }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+            .layers-panel {
+                width: auto;
+                left: 1rem;
+                right: 1rem;
+                top: 1rem;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 p-4 sm:p-6 lg:p-8">
+<body class="text-gray-800">
 
-    <div>
-        <header class="text-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Renewable Energy Projects in Tunisia</h1>
-            <p class="text-md text-gray-600 mt-1">An interactive map to visualize project status.</p>
-        </header>
+    <header class="text-center">
+        <h1 class="text-2xl font-bold text-gray-900">Renewable Energy Projects in Tunisia</h1>
+        <p class="text-sm text-gray-600">An interactive map to visualize RES projects.</p>
+    </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <!-- Left Panel: Filters -->
-            <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-md self-start">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Filter by Status</h2>
-                <div id="filters" class="space-y-3">
-                    <!-- Checkboxes for filtering by status -->
-                    <div>
-                        <label class="inline-flex items-center cursor-pointer">
-                            <input type="checkbox" value="operational" class="form-checkbox h-5 w-5 text-emerald-500 rounded focus:ring-emerald-400" checked>
-                            <span class="ml-3 text-gray-700">Operational</span>
-                        </label>
-                    </div>
-                    <div>
-                        <label class="inline-flex items-center cursor-pointer">
-                            <input type="checkbox" value="under-construction" class="form-checkbox h-5 w-5 text-amber-500 rounded focus:ring-amber-400" checked>
-                            <span class="ml-3 text-gray-700">Under Construction</span>
-                        </label>
-                    </div>
-                    <div>
-                        <label class="inline-flex items-center cursor-pointer">
-                            <input type="checkbox" value="awarded" class="form-checkbox h-5 w-5 text-blue-500 rounded focus:ring-blue-400" checked>
-                            <span class="ml-3 text-gray-700">Awarded</span>
-                        </label>
-                    </div>
+    <div class="main-content">
+        <!-- Left Panel: Layers (now an overlay) -->
+        <div class="layers-panel">
+            <h2 class="text-xl font-semibold mb-4 border-b pb-2">Layers</h2>
+            <div id="layers" class="space-y-3">
+                <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Status</h3>
+                <!-- Checkboxes for filtering by status -->
+                <div>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" value="operational" class="form-checkbox h-5 w-5 text-emerald-500 rounded focus:ring-emerald-400" checked>
+                        <span class="ml-3 text-gray-700">Operational</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" value="under-construction" class="form-checkbox h-5 w-5 text-amber-500 rounded focus:ring-amber-400" checked>
+                        <span class="ml-3 text-gray-700">Under Construction</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" value="awarded" class="form-checkbox h-5 w-5 text-blue-500 rounded focus:ring-blue-400" checked>
+                        <span class="ml-3 text-gray-700">Awarded</span>
+                    </label>
+                </div>
+
+                <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Infrastructure</h3>
+                <!-- Checkboxes for toggling infrastructure layers -->
+                <div>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" value="power-lines" class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500" checked>
+                        <span class="ml-3 text-gray-700">National Grid</span>
+                    </label>
+                </div>
+                <div>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" value="substations" class="form-checkbox h-5 w-5 text-gray-600 rounded focus:ring-gray-500" checked>
+                        <span class="ml-3 text-gray-700">Posts</span>
+                    </label>
                 </div>
             </div>
-
-            <!-- Right Panel: Map -->
-            <div class="md:col-span-3">
-                <!-- This div will hold the Leaflet map -->
-                <div id="map"></div>
-            </div>
         </div>
+
+        <!-- Map container -->
+        <div id="map"></div>
     </div>
 
     <!-- Leaflet JavaScript for map functionality -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
-        const filters = document.getElementById('filters');
+        const layersControl = document.getElementById('layers');
         let map; // To hold the map instance
-        let projectLayer; // Layer for the filterable project markers
+        let projectLayer, powerLinesLayer, substationsLayer; // Layers for map features
         let allProjectData; // To store the original project data
 
         // Data for the RES project points
@@ -216,8 +278,10 @@
             if (!insightsContainer) return;
             insightsContainer.innerHTML = `<div class="gemini-insights"><p>✨ Generating insights...</p></div>`;
             const prompt = `Provide a brief, engaging summary (about 50-70 words) for a renewable energy project in Tunisia. Name: ${name}, Status: ${status}, Capacity: ${capacity}. Focus on its potential local and national impact, and what this type of project means for Tunisia's future.`;
-            const apiKey = "";
+            
+            const apiKey = ""; 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
             try {
                 const payload = { contents: [{ parts: [{ text: prompt }] }] };
                 const response = await fetch(apiUrl, {
@@ -236,7 +300,7 @@
         }
         
         /**
-         * Creates the filterable project markers layer, colored by capacity.
+         * Creates the project markers layer.
          */
         function createProjectMarkers() {
             allProjectData = {
@@ -253,7 +317,7 @@
                     const capacity = feature.properties.capacity;
                     return L.circleMarker(latlng, {
                         radius: 8,
-                        fillColor: capacityColors[capacity] || '#808080', // Use capacity for color
+                        fillColor: capacityColors[capacity] || '#808080',
                         color: '#fff',
                         weight: 2,
                         opacity: 1,
@@ -265,7 +329,7 @@
         }
 
         /**
-         * Loads the non-filterable power lines GeoJSON data.
+         * Loads the power lines GeoJSON data.
          */
         async function loadPowerLinesData() {
             try {
@@ -274,13 +338,9 @@
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const powerLinesData = await response.json();
 
-                L.geoJSON(powerLinesData, {
-                    style: {
-                        color: '#3B82F6', // Blue color for the lines
-                        weight: 2,       // Thinner line weight
-                        opacity: 0.7
-                    },
-                    onEachFeature: onEachFeature // Allow popups on lines too
+                powerLinesLayer = L.geoJSON(powerLinesData, {
+                    style: { color: '#3B82F6', weight: 2, opacity: 0.7 },
+                    onEachFeature: onEachFeature
                 }).addTo(map);
 
             } catch (error) {
@@ -289,29 +349,25 @@
         }
         
         /**
-         * Loads the non-filterable substation markers GeoJSON data.
+         * Loads the substation markers GeoJSON data.
          */
         async function loadSubstationsData() {
             try {
-                // IMPORTANT: Make sure this URL is correct and points to your raw subs.geojson file
                 const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/subs.geojson'; 
                 const response = await fetch(geoJsonUrl);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const substationsData = await response.json();
 
-                L.geoJSON(substationsData, {
-                    pointToLayer: (feature, latlng) => {
-                        // Use a circle marker for the substations/posts
-                        return L.circleMarker(latlng, {
-                            radius: 6,
-                            fillColor: '#4B5563', // Grey color
-                            color: '#fff',
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        });
-                    },
-                    onEachFeature: onEachFeature // Allow popups on substations too
+                substationsLayer = L.geoJSON(substationsData, {
+                    pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+                        radius: 6,
+                        fillColor: '#4B5563',
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }),
+                    onEachFeature: onEachFeature
                 }).addTo(map);
 
             } catch (error) {
@@ -320,17 +376,38 @@
         }
 
         /**
-         * Filters the project markers layer based on selected checkboxes.
+         * Updates visibility of all layers based on selected checkboxes.
          */
-        function filterMarkers() {
-            if (!projectLayer || !allProjectData) return;
-            const checkedStatuses = Array.from(filters.querySelectorAll('input:checked')).map(input => input.value);
-            projectLayer.clearLayers();
-            const filteredData = allProjectData.features.filter(feature => {
-                const status = feature.properties.status.toLowerCase().replace(/\s+/g, '-');
-                return checkedStatuses.includes(status);
-            });
-            projectLayer.addData({ type: "FeatureCollection", features: filteredData });
+        function updateLayerVisibility() {
+            const checkedValues = Array.from(layersControl.querySelectorAll('input:checked')).map(input => input.value);
+
+            // Filter Projects Layer
+            if (projectLayer && allProjectData) {
+                projectLayer.clearLayers();
+                const filteredFeatures = allProjectData.features.filter(feature => {
+                    const status = feature.properties.status.toLowerCase().replace(/\s+/g, '-');
+                    return checkedValues.includes(status);
+                });
+                projectLayer.addData({ type: "FeatureCollection", features: filteredFeatures });
+            }
+
+            // Toggle Power Lines Layer
+            if (powerLinesLayer) {
+                if (checkedValues.includes('power-lines') && !map.hasLayer(powerLinesLayer)) {
+                    map.addLayer(powerLinesLayer);
+                } else if (!checkedValues.includes('power-lines') && map.hasLayer(powerLinesLayer)) {
+                    map.removeLayer(powerLinesLayer);
+                }
+            }
+
+            // Toggle Substations Layer
+            if (substationsLayer) {
+                if (checkedValues.includes('substations') && !map.hasLayer(substationsLayer)) {
+                    map.addLayer(substationsLayer);
+                } else if (!checkedValues.includes('substations') && map.hasLayer(substationsLayer)) {
+                    map.removeLayer(substationsLayer);
+                }
+            }
         }
         
         /**
@@ -343,7 +420,6 @@
                 const capacities = Object.keys(capacityColors);
                 let labels = ['<h4>Project Capacity (MW)</h4>'];
 
-                // Add capacity colors
                 for (let i = 0; i < capacities.length; i++) {
                     labels.push(
                         '<i class="circle" style="background:' + capacityColors[capacities[i]] + '"></i> ' +
@@ -352,9 +428,7 @@
                 }
                 
                 labels.push('<br><h4>Infrastructure</h4>');
-                // Add National Grid line
                 labels.push('<i class="line" style="background:#3B82F6"></i> National Grid');
-                // Add Post marker
                 labels.push('<i class="circle" style="background:#4B5563"></i> Posts');
 
                 div.innerHTML = labels.join('<br>');
@@ -363,17 +437,19 @@
             legend.addTo(map);
         }
 
-        // Add event listener to the filter checkboxes
-        filters.addEventListener('change', filterMarkers);
+        // Add event listener to the layers control panel
+        layersControl.addEventListener('change', updateLayerVisibility);
 
         // Initialize the map and load all data when the window loads
-        window.onload = () => {
+        window.onload = async () => {
             initMap();
+            // Load all data layers
             createProjectMarkers();
-            loadPowerLinesData();
-            loadSubstationsData();
+            await loadPowerLinesData();
+            await loadSubstationsData();
             addLegend();
-            filterMarkers(); // Apply initial filter to project markers
+            // Set initial visibility based on default checked boxes
+            updateLayerVisibility(); 
         };
     </script>
 </body>
