@@ -55,11 +55,43 @@
             font-size: 0.9rem;
             border-left: 3px solid #4f46e5;
         }
+        /* Styles for the new legend */
+        .legend {
+            padding: 6px 10px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            line-height: 20px;
+            color: #555;
+        }
+        .legend h4 {
+            margin: 0 0 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.9;
+        }
+        .legend .circle {
+            border-radius: 50%;
+            border: 1px solid #999;
+        }
+        .legend .line {
+            height: 5px;
+            border-radius: 2px;
+            margin-top: 7px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 p-4 sm:p-6 lg:p-8">
 
-    <div class="max-w-7xl mx-auto">
+    <div>
         <header class="text-center mb-6">
             <h1 class="text-3xl font-bold text-gray-900">Renewable Energy Projects in Tunisia</h1>
             <p class="text-md text-gray-600 mt-1">An interactive map to visualize project status.</p>
@@ -68,7 +100,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <!-- Left Panel: Filters -->
             <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-md self-start">
-                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Filters</h2>
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Filter by Status</h2>
                 <div id="filters" class="space-y-3">
                     <!-- Checkboxes for filtering by status -->
                     <div>
@@ -124,11 +156,12 @@
             { name: "Gabes (Ramada) PV", status: "awarded", capacity: "50 MW", lat: 33.70, lon: 10.38 }
         ];
 
-        // Define colors for different statuses
-        const statusColors = {
-            'operational': '#10B981',
-            'under-construction': '#F59E0B',
-            'awarded': '#3B82F6'
+        // Define colors for different capacity values
+        const capacityColors = {
+            '10 MW': '#fee08b',
+            '50 MW': '#fdae61',
+            '100 MW': '#f46d43',
+            '200 MW': '#d73027'
         };
 
         /**
@@ -151,7 +184,7 @@
                 const statusText = props.status ? props.status.charAt(0).toUpperCase() + props.status.slice(1) : 'N/A';
                 const capacityText = props.capacity || 'N/A';
                 const nameText = props.name || 'Unnamed Feature';
-                const uniqueId = nameText.replace(/[^a-zA-Z0-9]/g, '');
+                const uniqueId = (nameText + Math.random()).replace(/[^a-zA-Z0-9]/g, '');
 
                 const popupContent = `
                     <div class="project-popup">
@@ -203,10 +236,9 @@
         }
         
         /**
-         * Creates the filterable project markers layer.
+         * Creates the filterable project markers layer, colored by capacity.
          */
         function createProjectMarkers() {
-            // Convert the simple project array to a GeoJSON FeatureCollection
             allProjectData = {
                 type: "FeatureCollection",
                 features: projects.map(p => ({
@@ -218,10 +250,10 @@
 
             projectLayer = L.geoJSON(allProjectData, {
                 pointToLayer: (feature, latlng) => {
-                    const status = feature.properties.status.toLowerCase().replace(/\s+/g, '-');
+                    const capacity = feature.properties.capacity;
                     return L.circleMarker(latlng, {
                         radius: 8,
-                        fillColor: statusColors[status] || '#808080',
+                        fillColor: capacityColors[capacity] || '#808080', // Use capacity for color
                         color: '#fff',
                         weight: 2,
                         opacity: 1,
@@ -253,7 +285,37 @@
 
             } catch (error) {
                 console.error("Could not load Power Lines GeoJSON data:", error);
-                // Non-critical, so we don't alert the user
+            }
+        }
+        
+        /**
+         * Loads the non-filterable substation markers GeoJSON data.
+         */
+        async function loadSubstationsData() {
+            try {
+                // IMPORTANT: Make sure this URL is correct and points to your raw subs.geojson file
+                const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/subs.geojson'; 
+                const response = await fetch(geoJsonUrl);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const substationsData = await response.json();
+
+                L.geoJSON(substationsData, {
+                    pointToLayer: (feature, latlng) => {
+                        // Use a circle marker for the substations/posts
+                        return L.circleMarker(latlng, {
+                            radius: 6,
+                            fillColor: '#4B5563', // Grey color
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: onEachFeature // Allow popups on substations too
+                }).addTo(map);
+
+            } catch (error) {
+                console.error("Could not load Substations GeoJSON data:", error);
             }
         }
 
@@ -262,17 +324,43 @@
          */
         function filterMarkers() {
             if (!projectLayer || !allProjectData) return;
-
             const checkedStatuses = Array.from(filters.querySelectorAll('input:checked')).map(input => input.value);
-            
             projectLayer.clearLayers();
-
             const filteredData = allProjectData.features.filter(feature => {
                 const status = feature.properties.status.toLowerCase().replace(/\s+/g, '-');
                 return checkedStatuses.includes(status);
             });
-
             projectLayer.addData({ type: "FeatureCollection", features: filteredData });
+        }
+        
+        /**
+         * Creates and adds a legend for all data types to the map.
+         */
+        function addLegend() {
+            const legend = L.control({position: 'bottomright'});
+            legend.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'info legend');
+                const capacities = Object.keys(capacityColors);
+                let labels = ['<h4>Project Capacity (MW)</h4>'];
+
+                // Add capacity colors
+                for (let i = 0; i < capacities.length; i++) {
+                    labels.push(
+                        '<i class="circle" style="background:' + capacityColors[capacities[i]] + '"></i> ' +
+                        capacities[i].replace(' MW', '')
+                    );
+                }
+                
+                labels.push('<br><h4>Infrastructure</h4>');
+                // Add National Grid line
+                labels.push('<i class="line" style="background:#3B82F6"></i> National Grid');
+                // Add Post marker
+                labels.push('<i class="circle" style="background:#4B5563"></i> Posts');
+
+                div.innerHTML = labels.join('<br>');
+                return div;
+            };
+            legend.addTo(map);
         }
 
         // Add event listener to the filter checkboxes
@@ -283,6 +371,8 @@
             initMap();
             createProjectMarkers();
             loadPowerLinesData();
+            loadSubstationsData();
+            addLegend();
             filterMarkers(); // Apply initial filter to project markers
         };
     </script>
