@@ -434,7 +434,7 @@
                 pointToLayer: (feature, latlng) => {
                     const capacity = feature.properties.capacity;
                     return L.circleMarker(latlng, {
-                        radius: 8,
+                        radius: 10,
                         fillColor: capacityColors[capacity] || '#808080',
                         color: '#fff',
                         weight: 2,
