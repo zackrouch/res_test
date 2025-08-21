@@ -223,7 +223,6 @@
 
     <div class="main-content">
         <!-- Left Panel: Layers (now an overlay and collapsible) -->
-        <!-- NEW: Added 'collapsed' class to make it collapsed by default -->
         <div id="layers-panel" class="layers-panel collapsed">
             <div class="panel-header" id="panel-header">
                 <h2 class="text-xl font-semibold">Layers</h2>
@@ -314,6 +313,14 @@
             '200 MW': '#d73027'
         };
 
+        // --- NEW: Define radii for different capacity values ---
+        const capacityRadii = {
+            '10 MW': 6,
+            '50 MW': 8,
+            '100 MW': 10,
+            '200 MW': 12
+        };
+
         /**
          * Initializes the Leaflet map.
          */
@@ -324,7 +331,7 @@
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             }).addTo(map);
 
-            // --- NEW: Move the zoom control to the bottom left ---
+            // Move the zoom control to the bottom left
             map.zoomControl.setPosition('bottomleft');
 
             // Add the geocoder control for searching
@@ -433,8 +440,9 @@
             projectLayer = L.geoJSON(allProjectData, {
                 pointToLayer: (feature, latlng) => {
                     const capacity = feature.properties.capacity;
+                    // --- UPDATED: Use dynamic radius based on capacity ---
                     return L.circleMarker(latlng, {
-                        radius: 10,
+                        radius: capacityRadii[capacity] || 6, // Default to 6 if capacity not found
                         fillColor: capacityColors[capacity] || '#808080',
                         color: '#fff',
                         weight: 2,
@@ -586,6 +594,7 @@
                 labels.push('<br><h4>Infrastructure</h4>');
                 labels.push('<i class="line" style="background:#3B82F6"></i> National Grid');
                 labels.push('<i class="circle" style="background:#4B5563"></i> Posts');
+
 
                 div.innerHTML = labels.join('<br>');
                 return div;
