@@ -180,6 +180,19 @@
         .leaflet-control-geocoder-form input {
             font-family: 'Inter', sans-serif;
         }
+        
+        /* NEW: Weather Legend Styles */
+        .weather-legend-gradient {
+            height: 10px;
+            width: 100%;
+            margin-top: 5px;
+            border-radius: 5px;
+        }
+        .weather-legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
 
 
         /* Responsive adjustments for smaller screens */
@@ -227,12 +240,12 @@
             <div class="panel-header" id="panel-header">
                 <h2 class="text-xl font-semibold">Layers</h2>
                 <div class="panel-toggle-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-down"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
             </div>
             <div class="layers-content">
                 <div id="layers" class="space-y-3 border-t pt-4 mt-2">
-                    <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Projects</h3>
+                    <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Project Status</h3>
                     <!-- Checkboxes for filtering by status -->
                     <div>
                         <label class="inline-flex items-center cursor-pointer">
@@ -253,6 +266,33 @@
                         </label>
                     </div>
 
+                    <!-- NEW: Capacity Filter -->
+                    <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Capacity (MW)</h3>
+                    <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="10 MW" class="form-checkbox h-5 w-5 text-gray-500 rounded focus:ring-gray-400" checked>
+                            <span class="ml-3 text-gray-700">10</span>
+                        </label>
+                    </div>
+                     <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="50 MW" class="form-checkbox h-5 w-5 text-gray-500 rounded focus:ring-gray-400" checked>
+                            <span class="ml-3 text-gray-700">50</span>
+                        </label>
+                    </div>
+                     <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="100 MW" class="form-checkbox h-5 w-5 text-gray-500 rounded focus:ring-gray-400" checked>
+                            <span class="ml-3 text-gray-700">100</span>
+                        </label>
+                    </div>
+                     <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="200 MW" class="form-checkbox h-5 w-5 text-gray-500 rounded focus:ring-gray-400" checked>
+                            <span class="ml-3 text-gray-700">200</span>
+                        </label>
+                    </div>
+
                     <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Infrastructure</h3>
                     <!-- Checkboxes for toggling infrastructure layers -->
                     <div>
@@ -265,6 +305,27 @@
                         <label class="inline-flex items-center cursor-pointer">
                             <input type="checkbox" value="substations" class="form-checkbox h-5 w-5 text-gray-600 rounded focus:ring-gray-500" checked>
                             <span class="ml-3 text-gray-700">Posts</span>
+                        </label>
+                    </div>
+                    
+                    <!-- UPDATED: Weather Layers -->
+                    <h3 class="text-sm font-semibold text-gray-600 uppercase pt-2">Weather Layers</h3>
+                    <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="weather" value="temperature" class="form-checkbox h-5 w-5 text-red-500 rounded focus:ring-red-400">
+                            <span class="ml-3 text-gray-700">Temperature</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="weather" value="clouds" class="form-checkbox h-5 w-5 text-gray-500 rounded focus:ring-gray-400">
+                            <span class="ml-3 text-gray-700">Clouds</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="weather" value="wind_speed" class="form-checkbox h-5 w-5 text-cyan-500 rounded focus:ring-cyan-400">
+                            <span class="ml-3 text-gray-700">Wind Speed</span>
                         </label>
                     </div>
                 </div>
@@ -286,8 +347,12 @@
         let map; // To hold the map instance
         let projectLayer, powerLinesLayer, substationsLayer, ratedLinesLayer, ratedPolygonsLayer; // Layers for map features
         let allProjectData; // To store the original project data
+        
+        let temperatureLayer, cloudsLayer, windSpeedLayer;
+        let weatherLegend; // To hold the weather legend control
 
-        // Data for the RES project points
+        const OWM_API_KEY = '9c33a50f3193473082876777cc9691fc';
+
         const projects = [
             { name: "Tozeur PV", status: "operational", capacity: "10 MW", lat: 33.91, lon: 8.13 },
             { name: "Sidi Bouzid PV", status: "operational", capacity: "10 MW", lat: 35.03, lon: 9.48 },
@@ -301,11 +366,9 @@
             { name: "Sfax (Chebilia) PV", status: "awarded", capacity: "50 MW", lat: 34.74, lon: 10.76 },
             { name: "Tozeur (Ksar Ghilane) PV", status: "awarded", capacity: "50 MW", lat: 32.98, lon: 9.63 },
             { name: "Gabes (Ramada) PV", status: "awarded", capacity: "50 MW", lat: 33.70, lon: 10.38 },
-            // New El-Hamma marker
             { name: "El-Hamma", status: "awarded", capacity: "100 MW", lat: 33.9, lon: 9.8 }
         ];
 
-        // Define colors for different capacity values
         const capacityColors = {
             '10 MW': '#fee08b',
             '50 MW': '#fdae61',
@@ -313,10 +376,9 @@
             '200 MW': '#d73027'
         };
 
-        // --- NEW: Define radii for different capacity values ---
         const capacityRadii = {
-            '10 MW': 6,
-            '50 MW': 8,
+            '10 MW': 7,
+            '50 MW': 9,
             '100 MW': 10,
             '200 MW': 12
         };
@@ -331,16 +393,13 @@
                 attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             }).addTo(map);
 
-            // Move the zoom control to the bottom left
             map.zoomControl.setPosition('bottomleft');
 
-            // Add the geocoder control for searching
             L.Control.geocoder({
-                defaultMarkGeocode: false, // Do not automatically place a marker
+                defaultMarkGeocode: false,
                 placeholder: 'Search for a location...'
             })
             .on('markgeocode', function(e) {
-                // When a location is found, fly to it
                 const bbox = e.geocode.bbox;
                 const poly = L.polygon([
                     bbox.getSouthEast(),
@@ -353,9 +412,6 @@
             .addTo(map);
         }
 
-        /**
-         * Binds a popup to each feature and sets up Gemini API interaction.
-         */
         function onEachFeature(feature, layer) {
             if (feature.properties) {
                 const props = feature.properties;
@@ -375,12 +431,10 @@
                 `;
                 layer.bindPopup(popupContent);
 
-                // Add a click event to the layer to zoom in
                 layer.on('click', (e) => {
-                    // Only zoom on point features (projects, substations)
                     if (feature.geometry.type === 'Point') {
                         const latLng = L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
-                        map.flyTo(latLng, 13); // Animate zoom to level 13
+                        map.flyTo(latLng, 13);
                     }
                 });
 
@@ -395,9 +449,6 @@
             }
         }
 
-        /**
-         * Fetches insights for a project from the Gemini API.
-         */
         async function getProjectInsights(name, status, capacity, targetId) {
             const insightsContainer = document.getElementById(targetId);
             if (!insightsContainer) return;
@@ -424,9 +475,6 @@
             }
         }
         
-        /**
-         * Creates the project markers layer.
-         */
         function createProjectMarkers() {
             allProjectData = {
                 type: "FeatureCollection",
@@ -440,9 +488,8 @@
             projectLayer = L.geoJSON(allProjectData, {
                 pointToLayer: (feature, latlng) => {
                     const capacity = feature.properties.capacity;
-                    // --- UPDATED: Use dynamic radius based on capacity ---
                     return L.circleMarker(latlng, {
-                        radius: capacityRadii[capacity] || 6, // Default to 6 if capacity not found
+                        radius: capacityRadii[capacity] || 6,
                         fillColor: capacityColors[capacity] || '#808080',
                         color: '#fff',
                         weight: 2,
@@ -454,9 +501,6 @@
             }).addTo(map);
         }
 
-        /**
-         * Loads the power lines GeoJSON data.
-         */
         async function loadPowerLinesData() {
             try {
                 const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/PWR_lines.geojson'; 
@@ -474,9 +518,6 @@
             }
         }
         
-        /**
-         * Loads the substation markers GeoJSON data.
-         */
         async function loadSubstationsData() {
             try {
                 const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/subs.geojson'; 
@@ -501,9 +542,6 @@
             }
         }
 
-        /**
-         * Loads the rated lines GeoJSON data and adds it to the map.
-         */
         async function loadRatedLines() {
             try {
                 const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/rated_lines.geojson'; 
@@ -512,18 +550,15 @@
                 const ratedLinesData = await response.json();
 
                 ratedLinesLayer = L.geoJSON(ratedLinesData, {
-                    style: { color: '#00BFFF', weight: 2, opacity: 0.7 }, // Deep Sky Blue
+                    style: { color: '#00BFFF', weight: 2, opacity: 0.7 },
                     onEachFeature: onEachFeature
-                }).addTo(map); // Add directly to map
+                }).addTo(map);
 
             } catch (error) {
                 console.error("Could not load Rated Lines GeoJSON data:", error);
             }
         }
 
-        /**
-         * Loads the rated polygons GeoJSON data and adds it to the map.
-         */
         async function loadRatedPolygons() {
             try {
                 const geoJsonUrl = 'https://raw.githubusercontent.com/zackrouch/res_test/main/rated_poly.geojson'; 
@@ -532,32 +567,42 @@
                 const ratedPolygonsData = await response.json();
 
                 ratedPolygonsLayer = L.geoJSON(ratedPolygonsData, {
-                    style: { color: '#4169E1', weight: 2, opacity: 0.5, fillColor: '#6495ED', fillOpacity: 0.2 }, // Royal Blue & Cornflower Blue
+                    style: { color: '#4169E1', weight: 2, opacity: 0.5, fillColor: '#6495ED', fillOpacity: 0.2 },
                     onEachFeature: onEachFeature
-                }).addTo(map); // Add directly to map
+                }).addTo(map);
 
             } catch (error) {
                 console.error("Could not load Rated Polygons GeoJSON data:", error);
             }
         }
 
-        /**
-         * Updates visibility of layers based on selected checkboxes.
-         */
         function updateLayerVisibility() {
-            const checkedValues = Array.from(layersControl.querySelectorAll('input:checked')).map(input => input.value);
+            const checkedInputs = Array.from(layersControl.querySelectorAll('input:checked'));
+            
+            const checkedStatuses = checkedInputs
+                .filter(input => ['operational', 'under-construction', 'awarded'].includes(input.value))
+                .map(input => input.value);
 
-            // Filter Projects Layer
+            const checkedCapacities = checkedInputs
+                .filter(input => input.value.includes('MW'))
+                .map(input => input.value);
+
+            const checkedInfra = checkedInputs
+                .filter(input => ['power-lines', 'substations'].includes(input.value))
+                .map(input => input.value);
+                
+            const activeWeatherLayer = checkedInputs.find(input => input.name === 'weather');
+
             if (projectLayer && allProjectData) {
                 projectLayer.clearLayers();
                 const filteredFeatures = allProjectData.features.filter(feature => {
                     const status = feature.properties.status.toLowerCase().replace(/\s+/g, '-');
-                    return checkedValues.includes(status);
+                    const capacity = feature.properties.capacity;
+                    return checkedStatuses.includes(status) && checkedCapacities.includes(capacity);
                 });
                 projectLayer.addData({ type: "FeatureCollection", features: filteredFeatures });
             }
 
-            // Toggle standard layers
             const standardLayers = {
                 'power-lines': powerLinesLayer,
                 'substations': substationsLayer
@@ -565,19 +610,58 @@
 
             for (const [value, layer] of Object.entries(standardLayers)) {
                 if (layer) {
-                    if (checkedValues.includes(value) && !map.hasLayer(layer)) {
+                    if (checkedInfra.includes(value) && !map.hasLayer(layer)) {
                         map.addLayer(layer);
-                    } else if (!checkedValues.includes(value) && map.hasLayer(layer)) {
+                    } else if (!checkedInfra.includes(value) && map.hasLayer(layer)) {
                         map.removeLayer(layer);
                     }
                 }
             }
+            
+            const weatherLayers = {
+                'temperature': temperatureLayer,
+                'clouds': cloudsLayer,
+                'wind_speed': windSpeedLayer
+            };
+
+            for (const [value, layer] of Object.entries(weatherLayers)) {
+                if (layer) {
+                    if (activeWeatherLayer && activeWeatherLayer.value === value) {
+                        if (!map.hasLayer(layer)) {
+                            map.addLayer(layer);
+                        }
+                    } else {
+                        if (map.hasLayer(layer)) {
+                            map.removeLayer(layer);
+                        }
+                    }
+                }
+            }
+            updateWeatherLegend(activeWeatherLayer ? activeWeatherLayer.value : null);
         }
         
-        /**
-         * Creates and adds a legend for all data types to the map.
-         */
-        function addLegend() {
+        function createWeatherLayers() {
+            if (OWM_API_KEY === 'YOUR_API_KEY' || !OWM_API_KEY) {
+                console.warn("OpenWeatherMap API key is not set. Weather layers will not be available.");
+                return;
+            }
+
+            const baseOWMUrl = `https://tile.openweathermap.org/map/{layer}/{z}/{x}/{y}.png?appid=${OWM_API_KEY}`;
+
+            temperatureLayer = L.tileLayer(baseOWMUrl.replace('{layer}', 'temp_new'), {
+                attribution: 'Weather data © <a href="https://openweathermap.org/">OpenWeatherMap</a>'
+            });
+            
+            cloudsLayer = L.tileLayer(baseOWMUrl.replace('{layer}', 'clouds_new'), {
+                attribution: 'Weather data © <a href="https://openweathermap.org/">OpenWeatherMap</a>'
+            });
+
+            windSpeedLayer = L.tileLayer(baseOWMUrl.replace('{layer}', 'wind_new'), {
+                attribution: 'Weather data © <a href="https://openweathermap.org/">OpenWeatherMap</a>'
+            });
+        }
+        
+        function addProjectLegend() {
             const legend = L.control({position: 'bottomright'});
             legend.onAdd = function (map) {
                 const div = L.DomUtil.create('div', 'info legend');
@@ -594,6 +678,8 @@
                 labels.push('<br><h4>Infrastructure</h4>');
                 labels.push('<i class="line" style="background:#3B82F6"></i> National Grid');
                 labels.push('<i class="circle" style="background:#4B5563"></i> Posts');
+                labels.push('<i class="line" style="background:#00BFFF"></i> Rated Lines');
+                labels.push('<i class="square" style="background:#6495ED; opacity: 0.5;"></i> Rated Polygons');
 
 
                 div.innerHTML = labels.join('<br>');
@@ -602,25 +688,88 @@
             legend.addTo(map);
         }
 
-        // Event listener for the collapsible panel
+        function addWeatherLegend() {
+            weatherLegend = L.control({ position: 'bottomleft' });
+            weatherLegend.onAdd = function(map) {
+                const div = L.DomUtil.create('div', 'info legend weather-legend');
+                div.style.display = 'none'; // Initially hidden
+                return div;
+            };
+            weatherLegend.addTo(map);
+        }
+
+        function updateWeatherLegend(activeLayer) {
+            const div = weatherLegend.getContainer();
+            if (!activeLayer) {
+                div.style.display = 'none';
+                return;
+            }
+
+            let legendData = {};
+            switch (activeLayer) {
+                case 'temperature':
+                    legendData = {
+                        title: 'Temperature (°C)',
+                        gradient: 'linear-gradient(to right, #3288bd, #66c2a5, #abdda4, #e6f598, #ffffbf, #fee08b, #fdae61, #f46d43, #d53e4f)',
+                        min: '-40',
+                        max: '40'
+                    };
+                    break;
+                case 'clouds':
+                     legendData = {
+                        title: 'Cloudiness (%)',
+                        gradient: 'linear-gradient(to right, #ffffff, #c0c0c0, #808080)',
+                        min: '0',
+                        max: '100'
+                    };
+                    break;
+                case 'wind_speed':
+                     legendData = {
+                        title: 'Wind (m/s)',
+                        gradient: 'linear-gradient(to right, #ffffff, #ccccff, #9999ff, #6666ff, #3333ff, #0000ff)',
+                        min: '0',
+                        max: '>30'
+                    };
+                    break;
+            }
+
+            div.innerHTML = `
+                <h4>${legendData.title}</h4>
+                <div class="weather-legend-gradient" style="background: ${legendData.gradient};"></div>
+                <div class="weather-legend-labels">
+                    <span>${legendData.min}</span>
+                    <span>${legendData.max}</span>
+                </div>
+            `;
+            div.style.display = 'block';
+        }
+
         panelHeader.addEventListener('click', () => {
             layersPanel.classList.toggle('collapsed');
         });
 
-        // Add event listener to the layers control panel for filtering
-        layersControl.addEventListener('change', updateLayerVisibility);
+        layersControl.addEventListener('change', (e) => {
+            // Make weather layers behave like radio buttons
+            if (e.target.name === 'weather' && e.target.checked) {
+                document.querySelectorAll('input[name="weather"]').forEach(cb => {
+                    if (cb !== e.target) {
+                        cb.checked = false;
+                    }
+                });
+            }
+            updateLayerVisibility();
+        });
 
-        // Initialize the map and load all data when the window loads
         window.onload = async () => {
             initMap();
-            // Load all data layers
             createProjectMarkers();
             await loadPowerLinesData();
             await loadSubstationsData();
-            await loadRatedLines(); // This will now add the layer to the map
-            await loadRatedPolygons(); // This will also add the layer to the map
-            addLegend();
-            // Set initial visibility based on default checked boxes
+            await loadRatedLines();
+            await loadRatedPolygons();
+            createWeatherLayers();
+            addProjectLegend();
+            addWeatherLegend(); // Add the container for the weather legend
             updateLayerVisibility(); 
         };
     </script>
